@@ -23,13 +23,13 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-acc_data = np.loadtxt('papam2_aae_basic.csv', delimiter=',') 
+acc_data = np.loadtxt('6axis_aae_tf2.csv', delimiter=',') 
 
 x_data = acc_data[:, 1:]
 y_data = acc_data[:, :1]
 
 DATA_LEN = len(x_data[0])
-EPOCH = 1000
+EPOCH = 10
 SPLIT_RATE = 0.2
 
 enc = OneHotEncoder()
@@ -52,11 +52,18 @@ with tf.device('GPU:0'):
     model.add(layers.Flatten())
     model.add(Dense(500, activation=tf.nn.swish))
     model.add(Dense(500, activation=tf.nn.swish))
-    model.add(layers.Dense(12, activation='softmax'))
+    model.add(layers.Dense(13, activation='softmax'))
 
     model.summary()
     model.compile(optimizer=Adam(lr=1.46e-3), loss='binary_crossentropy', metrics=['accuracy'])
-    model.fit(xt, yt, epochs=100)
+    model.fit(xt, yt, epochs=EPOCH)
 
     test_loss, test_acc = model.evaluate(xv, yv, verbose=2)
     print(test_acc)
+
+    pd = model.predict(xv)
+    yv = yv.argmax(axis=1)
+    pd = pd.argmax(axis=1)
+
+    print(confusion_matrix(yv, pd))
+    print(classification_report(yv, pd, digits=4))

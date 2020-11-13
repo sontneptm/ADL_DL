@@ -1,0 +1,12 @@
+model_checkpoint_path: "aae-300"
+all_model_checkpoint_paths: "aae-9800"
+all_model_checkpoint_paths: "aae-9900"
+all_model_checkpoint_paths: "aae-100"
+all_model_checkpoint_paths: "aae-200"
+all_model_checkpoint_paths: "aae-300"
+all_model_checkpoint_timestamps: 1605274592.7308552
+all_model_checkpoint_timestamps: 1605274610.1768305
+all_model_checkpoint_timestamps: 1605274884.8226216
+all_model_checkpoint_timestamps: 1605274902.1864922
+all_model_checkpoint_timestamps: 1605274919.5603652
+last_preserved_timestamp: 1605270305.6333733

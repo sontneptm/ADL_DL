@@ -15,7 +15,6 @@ def six_axis_to_image():
 
     print("normalizing datas...", end='')
 
- 
     for i in range(len(datas)):
         for j in range(len(datas[i])):
             if datas[i][j] >= 1.0:

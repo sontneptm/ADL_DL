@@ -17,7 +17,7 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-acc_data = np.loadtxt('papam2_aae_basic.csv', delimiter=',') 
+acc_data = np.loadtxt('6axis_aae_tf2.csv', delimiter=',') 
 
 x_data = acc_data[:, 1:]
 y_data = acc_data[:, :1]
@@ -36,11 +36,11 @@ model.add(LSTM(128, activation=tf.nn.swish, input_shape=(xt.shape[1], 1)))
 model.add(Dense(1024, activation=tf.nn.swish))
 model.add(Dense(1024, activation=tf.nn.swish))
 model.add(Dense(1024, activation=tf.nn.swish))
-model.add(Dense(12, activation='softmax'))
+model.add(Dense(13, activation='softmax'))
 model.summary()
 
 model.compile(optimizer=Adam(lr=1.46e-3), loss='binary_crossentropy', metrics=['accuracy'])
-model.fit(xt, yt, validation_split=0.2, epochs= 100)
+model.fit(xt, yt, validation_split=0.2, epochs= 3)
 
 test_loss, test_acc = model.evaluate(xv, yv, verbose=2)
 print(test_acc)
