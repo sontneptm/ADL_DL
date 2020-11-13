@@ -1,0 +1,2 @@
+model_checkpoint_path: "aae_dsc"
+all_model_checkpoint_paths: "aae_dsc"

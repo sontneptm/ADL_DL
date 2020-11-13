@@ -27,17 +27,17 @@ y_data = whole_data[:,:1]
 x_data = whole_data[:,1:]
 x_data = (x_data-x_data.min())/(x_data.max()-x_data.min())
 
-enc = OneHotEncoder()
-enc.fit(y_data)
-yt_onehot = enc.transform(y_data).toarray()
+#enc = OneHotEncoder()
+#enc.fit(y_data)
+#yt_onehot = enc.transform(y_data).toarray()
 y_data_back = y_data
-y_data = yt_onehot
+#y_data = yt_onehot
+y_data = y_data.reshape(-1,1)
 
 # hyper params
-LATENT_DIM = 2
 SPLIT_RATE = 0.2
-EPOCHS = 10000
-PPG_LENGTH = len(x_data[0])
+EPOCHS = 1000
+DATA_LENGTH = len(x_data[0])
 AE_LR = 1.46e-3
 GEN_LR = 1.46e-3
 DSC_LR = GEN_LR/20.0
@@ -54,8 +54,9 @@ class Encoder(object):
         model = tf.keras.Sequential(name='Encoder')
 
         # Layer 1
-        model.add(layers.Dense(1024, activation=tf.nn.swish, input_shape=[PPG_LENGTH]))
+        model.add(layers.Dense(1024, activation=tf.nn.swish, input_shape=[DATA_LENGTH]))
         model.add(layers.Dense(512, activation=tf.nn.swish))
+        model.add(layers.Dense(256, activation=tf.nn.swish))
         model.add(layers.Dense(LATENT_DIM))
 
         return model
@@ -69,9 +70,10 @@ class Decoder(object):
         model = tf.keras.Sequential(name='Decoder')
 
         # Layer 1
-        model.add(layers.Dense(512, activation=tf.nn.swish, input_shape=[LATENT_DIM+CLASS_NUM]))
+        model.add(layers.Dense(256, activation=tf.nn.swish, input_shape=[LATENT_DIM]))
+        model.add(layers.Dense(512, activation=tf.nn.swish))
         model.add(layers.Dense(1024, activation=tf.nn.swish))
-        model.add(layers.Dense(PPG_LENGTH, activation='sigmoid'))
+        model.add(layers.Dense(DATA_LENGTH, activation='sigmoid'))
 
         return model
 # end of Decoder class
@@ -84,9 +86,12 @@ class Discriminator(object):
         model = tf.keras.Sequential(name='Discriminator')
 
         # Layer 1
-        model.add(layers.Dense(1024, activation=tf.nn.swish, input_shape=[LATENT_DIM+CLASS_NUM]))
-        model.add(layers.Dense(1024, activation=tf.nn.swish))
-
+        model.add(layers.Dense(1024, activation=tf.nn.swish, input_shape=[LATENT_DIM+1]))
+        model.add(layers.Dropout(0.1))
+        model.add(layers.Dense(512, activation=tf.nn.swish))
+        model.add(layers.Dropout(0.1))
+        model.add(layers.Dense(1))
+    
         return model
 # end of Discriminator class
 
@@ -148,15 +153,17 @@ def train():
             z_real = z
             z_gen = enc(np.asmatrix(x), training=True)
 
-            z_input = tf.concat([z_real,y], -1, name='z_input')
+            z_input = tf.concat([z_real,y], 1, name='z_input')
             z_gen_input = tf.concat([z_gen,z_id], 1, name='z_gen_input')
+            z_gen_input_for_dec = tf.concat([z_gen], 1, name='z_gen_input')
 
-            x_bar = dec(z_gen_input, training=True)
+            x_bar = dec(z_gen_input_for_dec, training=True)
 
             dsc_real = dsc(z_input, training=True)
             dsc_fake = dsc(z_gen_input, training=True)
 
-            real_loss, fake_loss = -tf.reduce_mean(dsc_real), tf.reduce_mean(dsc_fake)
+            real_loss = -tf.reduce_mean(dsc_real)
+            fake_loss = tf.reduce_mean(dsc_fake)
             gp = gradient_penalty(partial(dsc, training=True), z_input, z_gen_input)
 
             loss_gen = -tf.reduce_mean(dsc_fake)
@@ -177,15 +184,18 @@ def train():
         z_gen = enc(np.asmatrix(x), training=False)
 
         z_input = tf.concat([z_real,y], 1, name='z_input')
-        z_gen_input = tf.concat([z_gen,z_id], 1, name='z_gen_input')
+        z_gen_input = tf.concat([z_gen, z_id], 1, name='z_gen_input')
+        z_input_for_dec = tf.concat([z_real], 1, name='z_input')
+        z_gen_input_for_dec = tf.concat([z_gen], 1, name='z_gen_input')
 
-        x_bar = dec(z_gen_input, training=False)
-        x_gen = dec(z_input, training=False)
+        x_bar = dec(z_gen_input_for_dec, training=False)
+        x_gen = dec(z_input_for_dec, training=False)
 
         dsc_real = dsc(z_input, training=False)
         dsc_fake = dsc(z_gen_input, training=False)
 
-        real_loss, fake_loss = -tf.reduce_mean(dsc_real), tf.reduce_mean(dsc_fake)
+        real_loss = -tf.reduce_mean(dsc_real)
+        fake_loss = tf.reduce_mean(dsc_fake)
         gp = gradient_penalty(partial(dsc, training=False), z_input, z_gen_input)
 
         loss_gen = -tf.reduce_mean(dsc_fake)
@@ -200,14 +210,15 @@ def train():
     for epoch in range(EPOCHS):
         # train AAE
         z_id = np.random.randint(0, CLASS_NUM, size=[len(x_data)])  # 'len(xt)' replace 'batch size'
+        z_id = z_id.reshape(-1,1)
         samples = prior.swiss_roll_3d(len(x_data), LATENT_DIM, label_indices=z_id)
 
-        z_id_one_hot_vector = np.zeros((len(x_data), CLASS_NUM))
-        z_id_one_hot_vector[np.arange(len(x_data)), z_id] = 1
+        #z_id_one_hot_vector = np.zeros((len(x_data), CLASS_NUM))
+        #z_id_one_hot_vector[np.arange(len(x_data)), z_id] = 1
 
         num_train = 0
         if num_train % 2 == 0:
-            training_step(x_data ,y_data, samples, z_id_one_hot_vector)
+            training_step(x_data ,y_data, samples, z_id)
         else :
             gen_training_step(x_data,y_data)
             gen_training_step(x_data,y_data)
@@ -217,7 +228,7 @@ def train():
         num_valid = 0
         val_loss_dsc, val_loss_gen, val_loss_ae, val_was_x = [],[],[],[]
         
-        x_gen, x_bar, loss_dsc, loss_gen, loss_ae, was_x = validation_step(x_data, y_data, samples, z_id_one_hot_vector)
+        x_gen, x_bar, loss_dsc, loss_gen, loss_ae, was_x = validation_step(x_data, y_data, samples, z_id)
 
         val_loss_dsc.append(loss_dsc)
         val_loss_gen.append(loss_gen)
@@ -242,7 +253,7 @@ def train():
 
         if epoch == EPOCHS-1 :
             encoded_data = enc(x_data, training=False)
-            encoded_input = tf.concat([encoded_data, y_data], 1, name='z_gen_input')
+            encoded_input = tf.concat([encoded_data], 1, name='z_gen_input')
             decoded_data = dec(encoded_input)
 
     save_message = "\tSave model: End of training"
